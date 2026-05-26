@@ -1,6 +1,5 @@
 import uuid
 from fastapi import Depends, FastAPI, APIRouter, HTTPException, status, Body
-import jwt
 
 from domain.booking import Booking
 from domain.user import User
