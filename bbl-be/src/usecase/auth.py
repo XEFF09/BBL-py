@@ -8,9 +8,9 @@ from config.config import Config
 
 
 class AuthService:
-    def __init__(self, cfg: Config):
-        self.users_db: Dict[str, User] = {}
+    def __init__(self, cfg: Config, mock):
         self.jwt_cfg = cfg["jwt"]
+        self.mock = mock
         self._init_users()
 
     def _init_users(self):
@@ -19,20 +19,20 @@ class AuthService:
             "password": self._hash_password("admin123"),
             "is_admin": True,
         }
-        self.users_db[admin_user["username"]] = admin_user
+        self.mock[admin_user["username"]] = admin_user
 
     async def register(self, req: AuthRequest):
-        if req.username in self.users_db:
+        if req.username in self.mock:
             raise ValueError("Username already exists")
 
-        self.users_db[req.username] = {
+        self.mock[req.username] = {
             "username": req.username,
             "password": self._hash_password(req.password),
             "is_admin": False,
         }
 
     async def login(self, req: AuthRequest) -> str:
-        user = self.users_db.get(req.username)
+        user = self.mock.get(req.username)
 
         if not user:
             raise ValueError("Invalid username or password")

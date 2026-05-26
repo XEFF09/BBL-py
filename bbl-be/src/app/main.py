@@ -4,6 +4,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from domain.booking import Booking
 from domain.dto.auth import AuthRequest
+from domain.dto.booking import CreateBookingRequest
+from internal.adapter.db.mock.user import MockUser
 from middleware.auth import AuthMiddleware
 from usecase.auth import AuthService
 from usecase.booking import BookingService
@@ -19,8 +21,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-auth_service = AuthService(cfg)
-booking_service = BookingService()
+init_mock_user = MockUser()
+mock_users_db = init_mock_user.get_instance()
+
+auth_service = AuthService(cfg, mock_users_db)
+booking_service = BookingService(mock_users_db)
 
 api_router = APIRouter(prefix="/api")
 auth_router = APIRouter(prefix="/auth", tags=["auth"])
@@ -59,18 +64,11 @@ async def register(req: AuthRequest):
 
 
 @booking_router.post("/")
-async def make_appointment(req: dict, current_user=Depends(auth_middleware.validate)):
-    booking_id = str(uuid.uuid4())
-    booking: Booking = {
-        "_id": booking_id,
-        "topic": req["topic"],
-        "from_time": req["from_time"],
-        "to_time": req["to_time"],
-        "creator_username": req["creator_username"],
-        "participants": req.get("participants", []),
-    }
+async def make_appointment(
+    req: CreateBookingRequest, curr_user=Depends(auth_middleware.validate)
+):
     try:
-        await booking_service.make_appointment(booking)
+        await booking_service.make_appointment(req, curr_user)
         return {"message": "Appointment created successfully"}
     except Exception as e:
         raise HTTPException(
@@ -80,10 +78,34 @@ async def make_appointment(req: dict, current_user=Depends(auth_middleware.valid
 
 
 @booking_router.get("/")
-async def get_appointments(current_user=Depends(auth_middleware.validate)):
+async def get_appointments(curr_user=Depends(auth_middleware.validate)):
     try:
-        appointments = await booking_service.get_appointments(current_user)
+        appointments = await booking_service.get_appointments(curr_user)
         return {"message": "Appointments retrieved successfully", "data": appointments}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+
+
+@booking_router.get("/{id}")
+async def get_appointment(id: str, curr_user=Depends(auth_middleware.validate)):
+    try:
+        appointment = await booking_service.get_appointment(id, curr_user)
+        return {"message": "Appointment retrieved successfully", "data": appointment}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+
+
+@booking_router.delete("/{id}")
+async def cancel_appointment(id: str, curr_user=Depends(auth_middleware.validate)):
+    try:
+        await booking_service.cancel_appointment(id, curr_user)
+        return {"message": "Appointment cancelled successfully"}
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
