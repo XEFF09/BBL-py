@@ -83,3 +83,12 @@ class UserService:
         encoded_jwt = jwt.encode(to_encode, secret_key, algorithm=algo)
 
         return encoded_jwt
+
+    def verify_token(self, token: str) -> Optional[TokenData]:
+        try:
+            payload = jwt.decode(token, secret_key, algorithms=[algo])
+            username: str = payload["username"]
+            is_admin: bool = payload.get("is_admin", False)
+            return TokenData(username=username, is_admin=is_admin)
+        except Exception:
+            return None
