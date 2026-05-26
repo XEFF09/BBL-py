@@ -4,11 +4,10 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from domain.booking import Booking
 from domain.dto.auth import AuthRequest
-from domain.user import User
-from middleware.auth import get_current_user
+from middleware.auth import AuthMiddleware
 from usecase.auth import AuthService
 from usecase.booking import BookingService
-
+from config.config import cfg
 
 app = FastAPI()
 
@@ -20,12 +19,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-auth_service = AuthService()
+auth_service = AuthService(cfg)
 booking_service = BookingService()
 
 api_router = APIRouter(prefix="/api")
 auth_router = APIRouter(prefix="/auth", tags=["auth"])
 booking_router = APIRouter(prefix="/bookings", tags=["bookings"])
+
+auth_middleware = AuthMiddleware(cfg)
 
 
 @auth_router.post("/login")
@@ -58,7 +59,7 @@ async def register(req: AuthRequest):
 
 
 @booking_router.post("/")
-async def make_appointment(req: dict, current_user=Depends(get_current_user)):
+async def make_appointment(req: dict, current_user=Depends(auth_middleware.validate)):
     booking_id = str(uuid.uuid4())
     booking: Booking = {
         "_id": booking_id,
@@ -79,7 +80,7 @@ async def make_appointment(req: dict, current_user=Depends(get_current_user)):
 
 
 @booking_router.get("/")
-async def get_appointments(current_user=Depends(get_current_user)):
+async def get_appointments(current_user=Depends(auth_middleware.validate)):
     try:
         appointments = await booking_service.get_appointments(current_user)
         return {"message": "Appointments retrieved successfully", "data": appointments}

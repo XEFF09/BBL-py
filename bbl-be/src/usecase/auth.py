@@ -4,19 +4,13 @@ from datetime import datetime, timedelta
 from jose import jwt
 from domain.dto.auth import AuthRequest
 from domain.user import User
-from dotenv import load_dotenv
-import os
-
-load_dotenv()
-
-secret_key = str(os.getenv("SECRET_KEY"))
-algo = str(os.getenv("ALGORITHM"))
-exp = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 30))
+from config.config import Config
 
 
 class AuthService:
-    def __init__(self):
+    def __init__(self, cfg: Config):
         self.users_db: Dict[str, User] = {}
+        self.jwt_cfg = cfg["jwt"]
         self._init_users()
 
     def _init_users(self):
@@ -28,7 +22,7 @@ class AuthService:
         self.users_db[admin_user["username"]] = admin_user
 
     async def register(self, req: AuthRequest):
-        if self.users_db[req.username]:
+        if req.username in self.users_db:
             raise ValueError("Username already exists")
 
         self.users_db[req.username] = {
@@ -38,7 +32,7 @@ class AuthService:
         }
 
     async def login(self, req: AuthRequest) -> str:
-        user = self.users_db[req.username]
+        user = self.users_db.get(req.username)
 
         if not user:
             raise ValueError("Invalid username or password")
@@ -62,8 +56,10 @@ class AuthService:
 
     def _create_access_token(self, data: dict) -> str:
         to_encode = data.copy()
-        expire = datetime.utcnow() + timedelta(minutes=exp)
+        expire = datetime.utcnow() + timedelta(minutes=self.jwt_cfg["expire_minutes"])
         to_encode.update({"exp": expire})
-        encoded_jwt = jwt.encode(to_encode, secret_key, algorithm=algo)
+        encoded_jwt = jwt.encode(
+            to_encode, self.jwt_cfg["secret_key"], algorithm=self.jwt_cfg["algorithm"]
+        )
 
         return encoded_jwt
