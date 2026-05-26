@@ -1,10 +1,15 @@
-from fastapi import FastAPI, APIRouter, HTTPException, status, Body
+import uuid
+from fastapi import Depends, FastAPI, APIRouter, HTTPException, status, Body
+import jwt
 
+from domain.booking import Booking
 from domain.user import User
+from middleware.auth import get_current_user
 from usecase.auth import UserService
-
+from usecase.booking import BookingService
 
 auth_service = UserService()
+booking_service = BookingService()
 
 app = FastAPI()
 api_router = APIRouter(prefix="/api")
@@ -25,6 +30,39 @@ async def login(username: str = Body(...), password: str = Body(...)):
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(e),
+        )
+
+
+@booking_router.post("/")
+async def make_appointment(req: dict, current_user=Depends(get_current_user)):
+    booking_id = str(uuid.uuid4())
+    booking: Booking = {
+        "_id": booking_id,
+        "topic": req["topic"],
+        "from_time": req["from_time"],
+        "to_time": req["to_time"],
+        "creator_username": req["creator_username"],
+        "participants": req.get("participants", []),
+    }
+    try:
+        await booking_service.make_appointment(booking)
+        return {"message": "Appointment created successfully"}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        )
+
+
+@booking_router.get("/")
+async def get_appointments(current_user=Depends(get_current_user)):
+    try:
+        appointments = await booking_service.get_appointments(current_user)
+        return {"message": "Appointments retrieved successfully", "data": appointments}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
         )
 

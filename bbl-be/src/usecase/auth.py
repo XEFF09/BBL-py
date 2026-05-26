@@ -4,12 +4,15 @@ from typing import Protocol, Optional, Dict, Any
 from datetime import datetime, timedelta
 from jose import jwt
 from pydantic import BaseModel
-
 from domain.user import User
+from dotenv import load_dotenv
+import os
 
-SECRET_KEY = "kawldlkj1odjko1jdkwqjdqw"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+load_dotenv()
+
+secret_key = str(os.getenv("SECRET_KEY"))
+algo = str(os.getenv("ALGORITHM"))
+exp = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 30))
 
 
 class TokenData(BaseModel):
@@ -23,7 +26,7 @@ class AuthUsecase(Protocol):
 
 class UserService:
     def __init__(self):
-        self.users_db: Dict[str, Dict[str, Any]] = {}
+        self.users_db = {}
         self._init_users()
 
     def _init_users(self):
@@ -74,9 +77,9 @@ class UserService:
         if expires_delta:
             expire = datetime.utcnow() + expires_delta
         else:
-            expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+            expire = datetime.utcnow() + timedelta(minutes=exp)
 
         to_encode.update({"exp": expire})
-        encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+        encoded_jwt = jwt.encode(to_encode, secret_key, algorithm=algo)
 
         return encoded_jwt
