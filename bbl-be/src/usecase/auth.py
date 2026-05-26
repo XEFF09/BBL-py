@@ -1,5 +1,4 @@
 import hashlib
-from typing import Dict
 from datetime import datetime, timedelta
 from jose import jwt
 from domain.dto.auth import AuthRequest
@@ -16,7 +15,7 @@ class AuthService:
     def _init_users(self):
         admin_user: User = {
             "username": "admin",
-            "password": self._hash_password("admin123"),
+            "password": self._hash_password("admin"),
             "is_admin": True,
         }
         self.mock[admin_user["username"]] = admin_user
