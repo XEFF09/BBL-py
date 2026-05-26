@@ -1,31 +1,55 @@
 import uuid
 from fastapi import Depends, FastAPI, APIRouter, HTTPException, status, Body
+from fastapi.middleware.cors import CORSMiddleware
 
 from domain.booking import Booking
+from domain.dto.auth import AuthRequest
 from domain.user import User
 from middleware.auth import get_current_user
-from usecase.auth import UserService
+from usecase.auth import AuthService
 from usecase.booking import BookingService
 
-auth_service = UserService()
-booking_service = BookingService()
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+auth_service = AuthService()
+booking_service = BookingService()
+
 api_router = APIRouter(prefix="/api")
 auth_router = APIRouter(prefix="/auth", tags=["auth"])
 booking_router = APIRouter(prefix="/bookings", tags=["bookings"])
 
 
 @auth_router.post("/login")
-async def login(username: str = Body(...), password: str = Body(...)):
+async def login(req: AuthRequest):
     try:
-        payload: User = {
-            "username": username,
-            "password": password,
-            "is_admin": False,
+        result = await auth_service.login(req)
+        return {
+            "message": "Login successful",
+            "access_token": result,
         }
-        result = await auth_service.login(payload)
-        return {"access_token": result}
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(e),
+        )
+
+
+@auth_router.post("/register")
+async def register(req: AuthRequest):
+    try:
+        await auth_service.register(req)
+        return {
+            "message": "Registration successful",
+        }
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
